@@ -1,0 +1,19 @@
+# LuneOS device adaptation: Google Pixel 6a (bluejay, Tensor GS101).
+# Read by /usr/bin/luneos-device-config (Tier 1); values not derivable from the
+# hardware. Installed at /usr/share/luneos/adaptations/bluejay/deviceinfo.
+#
+# Deliberately empty of overrides. Everything this device needs is either
+# derived correctly already or supplied by sparse/ alongside this file:
+#
+#   - The panel scans out portrait 1080x2400 and is used portrait, so there is
+#     no compositor rotation to declare (unlike tangorpro) and no derived
+#     evdevtouch rotation to opt out of.
+#   - devicePixelRatio is auto-detected as 2.40 and is correct. An earlier
+#     hardcoded 2.4 elsewhere was dead weight; what actually broke scaling was a
+#     stale usrDefined pin in /var/preferences/configd_factory_db.json holding
+#     it at 1.0, which outranks every configd layer file - so an override here
+#     would have been shadowed too. Check that pin first if scaling looks wrong.
+#
+# The file exists so luneos-device-config logs "using adaptation bluejay"
+# rather than "no adaptation for 'bluejay'", which would be misleading when
+# sparse/ below is in fact being applied.
