@@ -260,6 +260,13 @@ ESIM_RDEPENDS = " \
 # device-config service, because nothing had added it to the list yet.
 RDEPENDS:${PN}:append:halium = " ${LIBHYBRIS_RDEPENDS}"
 
+# Clears the two stale Trusty secure-storage backing files whose block-cache
+# assertion takes the whole secure OS - and with it the normal-world kernel -
+# down at ~37 s, before the AoC sound card ever appears. Installed for every
+# halium-arm64 rootfs, because that is the one rootfs bluejay actually boots;
+# the script checks /proc/device-tree/compatible and does nothing elsewhere.
+RDEPENDS:${PN}:append:halium-arm64 = " bluejay-trusty-storage-fixup"
+
 RDEPENDS:${PN}:append:hammerhead = " alsa-utils-systemd mesa-megadriver rmtfs qrtr rpmsgexport"
 RDEPENDS:${PN}:append:tenderloin = " alsa-utils-systemd rmtfs qrtr rpmsgexport"
 RDEPENDS:${PN}:append:tenderloin71 = " alsa-utils-systemd rmtfs qrtr rpmsgexport"
