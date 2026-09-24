@@ -72,7 +72,14 @@ require recipes-webos-ose/nyx-modules/nyx-modules-machines.inc
 # downgrade to opkg on an update.
 PV = "7.1.0-26"
 
-SRC_URI = "${WEBOS_PORTS_GIT_REPO_COMPLETE}"
+FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
+
+# The rest of LuneOS's nyx changes live in the webOS-ports fork's own source.
+# This one is carried as a patch only because it is new; it would be better off
+# in the fork alongside them.
+SRC_URI = "${WEBOS_PORTS_GIT_REPO_COMPLETE} \
+    file://0001-led_controller-drive-bl_power-as-well-as-brightness.patch \
+"
 
 do_install:append:tenderloin-halium() {
     install -d ${D}${systemd_system_unitdir}/nyx.target.d/
