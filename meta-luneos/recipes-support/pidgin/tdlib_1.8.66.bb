@@ -39,9 +39,27 @@ inherit cmake
 # cmake.bbclass already splits them for exactly this reason (oecmake_map_compiler
 # returns the compiler and the launcher separately), so use its native variants.
 # They degrade to a plain compiler and an empty launcher when ccache is off.
+# CCACHE_FOUND=OFF, on both passes. tdlib's CMakeLists.txt runs its own
+# find_program(CCACHE_FOUND ccache) and, when that succeeds, sets RULE_LAUNCH_COMPILE
+# and RULE_LAUNCH_LINK to a bare "ccache". The native pass below runs cmake without
+# the OE toolchain file, so that search covers the host's /usr/bin - on a builder
+# with ccache installed it reports "Found ccache", bakes "ccache" into every compile
+# rule, and then every rule fails with exit 127, because bitbake's task PATH holds
+# only HOSTTOOLS and ccache is not one of them:
+#     /bin/sh: 1: ccache: not found
+# Pre-setting the cache variable to a non-NOTFOUND false value makes find_program
+# skip the search entirely. Upstream anticipated this: their CMakeLists.txt carries
+# a commented-out "set(CCACHE_FOUND 0)" right below the search. Builders without
+# ccache installed never see any of this, which is how it stayed hidden.
+#
+# The generator dir is cleared first because CMakeCache.txt persists across runs:
+# a previous configure that cached CCACHE_FOUND=/usr/bin/ccache would otherwise be
+# reused on the retry.
 do_configure:prepend() {
+    rm -rf ${WORKDIR}/generate
     cmake -S ${S} -B ${WORKDIR}/generate \
         -DTD_GENERATE_SOURCE_FILES=ON \
+        -DCCACHE_FOUND=OFF \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_C_COMPILER="${OECMAKE_NATIVE_C_COMPILER}" \
         -DCMAKE_C_COMPILER_LAUNCHER="${OECMAKE_NATIVE_C_COMPILER_LAUNCHER}" \
@@ -58,6 +76,7 @@ do_configure:prepend() {
 # build in this monorepo consumes it.
 EXTRA_OECMAKE = " \
     -DCMAKE_BUILD_TYPE=Release \
+    -DCCACHE_FOUND=OFF \
     -DTD_ENABLE_LTO=OFF \
     -DBUILD_SHARED_LIBS=OFF \
 "
