@@ -33,3 +33,8 @@ SRC_URI = "${WEBOSOSE_GIT_REPO_COMPLETE}"
 # CMake 4: @VAR@ is no longer expanded in unquoted arguments (CMP0053),
 # which broke the install() DESTINATIONs in this component.
 SRC_URI += "file://0001-CMakeLists-use-CMake-variable-syntax-instead-of-VAR.patch"
+
+# Android kernels are built without CONFIG_SYSVIPC, so on Halium shmget() fails in
+# the library constructor - which then returned with the process-wide PmLog lock
+# still held, wedging every other webOS service's startup behind it.
+SRC_URI += "file://0002-PmLogLib-release-the-lock-when-shared-memory-is-unavailable.patch"

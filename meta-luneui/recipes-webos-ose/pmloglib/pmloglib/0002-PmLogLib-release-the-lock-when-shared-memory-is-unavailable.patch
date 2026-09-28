@@ -1,0 +1,61 @@
+From: Andrew Hunt <achunt@bellsouth.net>
+Date: Mon, 28 Sep 2026 08:30:00 -0400
+Subject: [PATCH] PmLogLib: release the lock when shared memory is unavailable
+
+The library constructor takes the PmLog lock (a lockf() on
+/dev/shm/pmloglib.lock) and then creates its SysV shared memory. If shmget() or
+shmat() fails it returns with the lock still held - and the lock is only
+released when the process exits. Every other process that loads PmLogLib then
+blocks in its own constructor waiting for it, forever.
+
+That failure is not hypothetical. Android kernels are built with
+CONFIG_SYSVIPC unset, so on a Halium device shmget() fails for every process:
+the first webOS service to load the library wedges logging for the whole system,
+and every service that logs - the compositor's launcher among them, via
+"PmLogCtl def" - hangs at startup. Seen on a Pixel 6a (bluejay): 31 processes
+queued on the lock behind an idle LunaBackupAgent, no UI.
+
+Release the lock on both error paths. The library already has a defined state
+for "no usable shared memory" - the unrecognized-signature path sets
+gGlobalsP = NULL and carries on - and the public context API checks for it, so
+logging degrades to its defaults instead of hanging.
+
+PmLogPrvReadConfigs() writes into gGlobalsP through its parser without checking,
+and "!loglib loadconf" can reach it at runtime via HandleLogLibCommand, so guard
+it too - otherwise this would trade the hang for a crash.
+
+Upstream-Status: Pending
+---
+--- a/src/PmLogLib.c	2026-09-28 07:44:31.575074303 -0400
++++ b/src/PmLogLib.c	2026-09-28 07:44:31.670137554 -0400
+@@ -1072,6 +1072,14 @@
+     gchar *full_path = NULL;
+     bool found_default_conf = false;
+ 
++    /* No shared globals (shmget/shmat failed at init): the parsers below
++     * write into gGlobalsP, and "!loglib loadconf" can reach them at runtime
++     * through HandleLogLibCommand. */
++    if (gGlobalsP == NULL)
++    {
++        return false;
++    }
++
+     dir = g_dir_open(CONFIG_DIR, 0, &error);
+     if (!dir) {
+         ErrPrint(COMPONENT_PREFIX, "[]", "DIR_OPEN_ERR {\"Error\":\"%s\"}", error->message);
+@@ -1222,6 +1230,7 @@
+     if (shmid == -1)
+     {
+         DbgPrint("shmget error: %s\n", strerror(errno));
++        PmLogPrvUnlock();
+         return;
+     }
+ 
+@@ -1229,6 +1238,7 @@
+     if (data == (char*) -1)
+     {
+         DbgPrint("shmat error: %s\n", strerror(errno));
++        PmLogPrvUnlock();
+         return;
+     }
+ 
